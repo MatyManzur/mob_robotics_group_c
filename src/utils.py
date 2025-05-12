@@ -2,6 +2,9 @@ from geometry_msgs.msg import Point, PoseStamped, Pose, Quaternion
 from nav_msgs.msg import Path
 from typing import Optional, List
 import math, tf, rospy
+import tf2_ros
+import numpy as np
+from scipy.spatial.transform import Rotation as R
 
 class MapPoint():
     def __init__(self, x: int, y: int):
@@ -57,3 +60,26 @@ def world_points_to_path(points: List[Point], time: rospy.Time) -> Path:
         pose.pose = world_point_to_pose(points[i], points[i + 1] if i < len(points) - 1 else None)
         path.poses.append(pose)
     return path
+
+
+def localiseRobot(tfBuffer: tf2_ros.Buffer) -> np.ndarray:
+    listener = tf2_ros.TransformListener(tfBuffer)
+    """Localises the robot towards the 'map' coordinate frame. Returns pose in format (x,y,theta)"""
+    while True:
+        try:
+            trans = tfBuffer.lookup_transform('map', 'base_link', rospy.Time(0), rospy.Duration(1.0))
+            break
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException):
+            print("Robot localisation took longer than 1 sec")
+            continue
+
+    theta = R.from_quat([
+        trans.transform.rotation.x,
+        trans.transform.rotation.y,
+        trans.transform.rotation.z,
+        trans.transform.rotation.w]).as_euler("xyz")[2]
+    
+    return np.array([
+        trans.transform.translation.x,
+        trans.transform.translation.y,
+        theta])

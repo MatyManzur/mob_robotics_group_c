@@ -9,8 +9,12 @@ import numpy as np
 from utils import Map, MapPoint, world_points_to_path 
 
 from typing import Dict, List, Tuple
-from utils import Map
+from utils import Map, localiseRobot
+import tf2_ros
+from scipy.ndimage import binary_dilation
 
+GLOBAL_PATH_TOPIC = '/move_base/global_path'
+MIN_WALL_DISTANCE = 1
 
 # Helper method for retrieving the map
 def getMap() -> OccupancyGrid:
@@ -33,6 +37,13 @@ resolution = recMap.info.resolution
 origin = recMap.info.origin.position
 origin = np.array([origin.x, origin.y])
 
+def get_close_to_wall_grid(grid: np.ndarray, min_distance: int) -> np.ndarray:
+    binary_grid = (grid == 100)
+    structuring_element = np.ones((2 * min_distance + 1, 2 * min_distance + 1), dtype=bool)
+    dilated_grid = binary_dilation(binary_grid, structure=structuring_element)
+    return dilated_grid
+
+close_to_wall_grid = get_close_to_wall_grid(grid, MIN_WALL_DISTANCE)
 
 # Printing map
 for i in range(len(grid)):
@@ -58,16 +69,18 @@ for i in range(len(grid)):
             continue
         for x in range(-1, 2):
             for y in range(-1, 2):
-                if x == 0 and y == 0:
+                if (x == 0 and y == 0):
                     continue
                 if i + x < 0 or i + x >= len(grid) or j + y < 0 or j + y >= len(grid[i]):
                     continue
-                if grid[i + x][j + y] == 100:
+                if close_to_wall_grid[i + x][j + y]:
                     continue
                 graph[point].append((MapPoint(i + x, j + y), np.sqrt(x ** 2 + y ** 2)))
 
+tfBuffer = tf2_ros.Buffer()
+
 # Get robot position
-robot_position = (2, 2) # TODO: get robot position
+robot_position = localiseRobot(tfBuffer)
 
 robot = map.world_to_map_position(robot_position[0], robot_position[1])
 
@@ -131,7 +144,7 @@ global_path_world = [map.map_to_world_position(point) for point in global_path]
 path_msg: Path = world_points_to_path(global_path_world, rospy.Time.now())
 
 # Publish path
-pub = rospy.Publisher('/move_base/global_path', Path, queue_size=10)
+pub = rospy.Publisher(GLOBAL_PATH_TOPIC, Path, queue_size=10)
 rospy.sleep(1.0)
 pub.publish(path_msg)
 
