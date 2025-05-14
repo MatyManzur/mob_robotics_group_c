@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import rospy
 import numpy as np
 import numpy.typing as npt
@@ -6,29 +7,24 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import Twist, PoseStamped
 import tf2_ros
 from scipy.spatial.transform import Rotation as R
+from utils import localiseRobot
+import yaml
+import os
 
-GLOBAL_PATH_TOPIC = '/move_base/global_path'
-GOAL_REACHED_THRESHOLD = 0.08
-COST_WEIGHTS = {
-    'x': 1.0,
-    'y': 1.0,
-    'theta': 0.001,
-    'v': 0.1,
-    'w': 0.001
-}
-RATE_HZ = 5
-HORIZON_IN_SECONDS = 2.0
+# Get the directory of the current file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+param_path = os.path.join(current_dir, 'parameters.yaml')
+
+with open(param_path, 'r') as f:
+    config = yaml.safe_load(f)
+
+GLOBAL_PATH_TOPIC = config['local_planning']['global_path_topic']
+GOAL_REACHED_THRESHOLD = config['local_planning']['goal_reached_threshold']
+COST_WEIGHTS = config['local_planning']['cost_weights']
+RATE_HZ = config['local_planning']['rate_hz']
+HORIZON_IN_SECONDS = config['local_planning']['horizon_in_seconds']
 HORIZON = int(RATE_HZ * HORIZON_IN_SECONDS)
-CONTROL_PARAMS = {
-    'min_v': -0.2,
-    'max_v': 0.2,
-    'min_w': -10,
-    'max_w': 10,
-    'dv': 0.1,
-    'dw': 0.5,
-    'max_dv': 0.3,
-    'max_dw': 15
-}
+CONTROL_PARAMS = config['local_planning']['control_params']
 
 class PT2Block:
     """Discrete PT2 Block approximated using the Tustin approximation (rough robot dynamics model)
@@ -68,25 +64,7 @@ def tf_mat2pose(tf_mat):
     x = tf_mat[0, 2]
     y = tf_mat[1, 2]
     theta = np.arctan2(tf_mat[1, 0], tf_mat[0, 0])
-    return np.array([x, y, theta])
-
-def localiseRobot(tf_buffer):
-    try:
-        trans = tf_buffer.lookup_transform('map', 'base_footprint', rospy.Time(0), rospy.Duration(1.0))
-        x = trans.transform.translation.x
-        y = trans.transform.translation.y
-        theta = R.from_quat([
-            trans.transform.rotation.x,
-            trans.transform.rotation.y,
-            trans.transform.rotation.z,
-            trans.transform.rotation.w
-        ]).as_euler('xyz')[2]
-        rospy.loginfo("Robot pose (TF): x={:.2f}, y={:.2f}, theta={:.2f}".format(x, y, theta))
-        return np.array([x, y, theta])
-    except Exception as e:
-        rospy.logwarn("Failed to get TF: {}".format(e))
-        return None
-    
+    return np.array([x, y, theta])   
 
 
 def generate_controls(previous_control: np.ndarray, min_v, max_v, min_w, max_w, dv, dw, max_dv, max_dw) -> np.ndarray:
@@ -263,13 +241,10 @@ class LocalPlanner:
                 max_dw=CONTROL_PARAMS['max_dw'])
             
             robotModelPT2 = PT2Block(ts=(1/RATE_HZ), T=0.05, D=0.8)
-            costs, trajectories = self.evaluateControls(controls, robotModelPT2, horizon=HORIZON, goal=goal_from_robot, ts=(1/RATE_HZ), vis_horizon=HORIZON)
+            costs, trajectories = self.evaluateControls(controls, robotModelPT2, horizon=HORIZON, goal=goal_from_robot, ts=(1/RATE_HZ), vis_horizon=2*HORIZON)
 
             idx = np.argmin(costs)
 
-            #print(f"Index with lowest cost: {idx}")
-            #print(f"Resulting cost: {costs[idx]}")
-            #print(f"Resulting control: {controls[idx]}")
             new_control = controls[idx]
             if np.all(new_control == 0): # if the control is zero, we select the second lowest cost
                 costs[idx] = np.inf  # Remove the lowest cost by setting it to infinity

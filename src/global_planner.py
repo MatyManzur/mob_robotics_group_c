@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import rospy
 
 from geometry_msgs.msg import Point, PoseStamped, Pose, Quaternion
@@ -12,9 +13,18 @@ from typing import Dict, List, Tuple
 from utils import Map, localiseRobot
 import tf2_ros
 from scipy.ndimage import binary_dilation
+import yaml, os
 
-GLOBAL_PATH_TOPIC = '/move_base/global_path'
-MIN_WALL_DISTANCE = 1
+# Get the directory of the current file
+current_dir = os.path.dirname(os.path.abspath(__file__))
+param_path = os.path.join(current_dir, 'parameters.yaml')
+
+with open(param_path, 'r') as f:
+    config = yaml.safe_load(f)
+
+GLOBAL_PATH_TOPIC = config['global_planning']['global_path_topic']
+MIN_WALL_DISTANCE = config['global_planning']['min_wall_distance']
+GOAL = tuple(config['global_planning']['goal'])
 
 # Helper method for retrieving the map
 def getMap() -> OccupancyGrid:
@@ -28,7 +38,7 @@ def getMap() -> OccupancyGrid:
     return recMap
 
 # Initiate ROS node
-rospy.init_node('moro_maze_navigation')
+rospy.init_node('global_planner')
 recMap = getMap()
 grid = np.split(np.array(recMap.data), recMap.info.height)
 # transpose the grid
@@ -69,7 +79,7 @@ for i in range(len(grid)):
             continue
         for x in range(-1, 2):
             for y in range(-1, 2):
-                if (x == 0 and y == 0):
+                if (x == 0 and y == 0) or (x*y != 0): # skip center and diagonals
                     continue
                 if i + x < 0 or i + x >= len(grid) or j + y < 0 or j + y >= len(grid[i]):
                     continue
@@ -84,7 +94,7 @@ robot_position = localiseRobot(tfBuffer)
 
 robot = map.world_to_map_position(robot_position[0], robot_position[1])
 
-goal_position = (0, 0) # TODO: get goal position
+goal_position = GOAL
 
 goal = map.world_to_map_position(goal_position[0], goal_position[1])
 
@@ -148,36 +158,5 @@ pub = rospy.Publisher(GLOBAL_PATH_TOPIC, Path, queue_size=10)
 rospy.sleep(1.0)
 pub.publish(path_msg)
 
-
-"""
-poses = []
-
-for i in range(len(global_path)):
-    world_point = map_to_world_position(global_path[i])
-    pose = PoseStamped()
-    pose.header.frame_id = 'map'
-    pose.header.stamp = rospy.Time.now()
-    pose.pose.position = world_point
-    if i < len(global_path) - 1:
-        next_world_point = map_to_world_position(global_path[i + 1])
-        dx = next_world_point.x - world_point.x
-        dy = next_world_point.y - world_point.y
-        angle = np.arctan2(dy, dx)
-        pose.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, angle))
-    else:
-        pose.pose.orientation = Quaternion(0, 0, 0, 1)
-    poses.append(pose)
-
-# Create path message
-path_msg = Path()
-path_msg.header.frame_id = 'map'
-path_msg.header.stamp = rospy.Time.now()
-path_msg.poses = poses
-
-# Publish path
-pub = rospy.Publisher('/global_plannnnn', Path, queue_size=10)
-rospy.sleep(1.0)
-pub.publish(path_msg)
-"""
 
     
