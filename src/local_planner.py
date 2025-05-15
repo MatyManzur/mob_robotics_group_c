@@ -25,6 +25,7 @@ RATE_HZ = config['local_planning']['rate_hz']
 HORIZON_IN_SECONDS = config['local_planning']['horizon_in_seconds']
 HORIZON = int(RATE_HZ * HORIZON_IN_SECONDS)
 CONTROL_PARAMS = config['local_planning']['control_params']
+A = config['local_planning']['a']
 
 class PT2Block:
     """Discrete PT2 Block approximated using the Tustin approximation (rough robot dynamics model)
@@ -78,7 +79,8 @@ def generate_controls(previous_control: np.ndarray, min_v, max_v, min_w, max_w, 
     controls = []
     for v in possible_v:
         for w in possible_w:
-            controls.append(np.array([v, w]))
+            if v == 0 or abs(w) < 1/(A*abs(v)): # we discard unuseful controls
+                controls.append(np.array([v, w]))
     print(f"Generated {len(controls)} control signals")
     return np.array(controls)
 

@@ -1,7 +1,7 @@
 global_planning:
   global_path_topic: '/move_base/global_path'
   min_wall_distance: 1
-  goal: [0, 3]
+  goal: [0, 0]
 
 local_planning:
   global_path_topic: '/move_base/global_path'
@@ -23,5 +23,6 @@ local_planning:
     dw: 0.5
     max_dv: 0.3
     max_dw: 15
+  a: 4
 
 
