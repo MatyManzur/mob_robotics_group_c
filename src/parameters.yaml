@@ -1,28 +1,28 @@
 global_planning:
-  global_path_topic: '/move_base/global_path'
-  min_wall_distance: 1
-  goal: [0, 0]
+  global_path_topic: '/move_base/global_path' # Topic where the global path is published
+  min_wall_distance: 1 # Minimum distance to walls that the robot should maintain
+  goal: [0, 0] # Goal position (x, y)
 
 local_planning:
-  global_path_topic: '/move_base/global_path'
-  goal_reached_threshold: 0.08
-  cost_weights:
+  global_path_topic: '/move_base/global_path' # Topic where the global path is published
+  goal_reached_threshold: 0.08 # Threshold to consider the goal as reached
+  cost_weights: # Weights used in matrices for the cost function
     x: 1.0
     y: 1.0
     theta: 0.001
     v: 0.1
     w: 0.001
-  rate_hz: 5
-  horizon_in_seconds: 2.0
+  rate_hz: 5 # Frequency of the local planner
+  horizon_in_seconds: 2.0 # Time horizon for the local planner, horizon in frames is calculated as rate_hz * horizon_in_seconds
   control_params:
-    min_v: -0.2
-    max_v: 0.2
-    min_w: -10
-    max_w: 10
-    dv: 0.1
-    dw: 0.5
-    max_dv: 0.3
-    max_dw: 15
-  a: 4
+    min_v: -0.2 # Minimum linear velocity
+    max_v: 0.2 # Maximum linear velocity
+    min_w: -10 # Minimum angular velocity
+    max_w: 10 # Maximum angular velocity
+    dv: 0.1 # Increment step for linear velocity
+    dw: 0.5 # Increment step for angular velocity
+    max_dv: 0.3 # Maximum change in linear velocity
+    max_dw: 15 # Maximum change in angular velocity
+  a: 4 # Custom parameter for discarding useless controls. All controls with |v| != 0 and |w| >= 1/(a*|v|) are discarded.
 
 
