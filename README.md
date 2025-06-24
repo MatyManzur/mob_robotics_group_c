@@ -13,7 +13,7 @@ RViz will open, where you can see the robot in real-time. The global path is sho
 ## Project description
 In `src/` folder, the code for the simulation can be found through the following files:
 - `global_planner.py`: contains the code to read the map, generate the graph with the map nodes, caluclate the global path using BFS and publish it to a rostopic.
-- `local_planner.py`: contains the code that gets the global path and robot position, and continuously publishes de velocity commands for the Robot to use in the simulation. It calculates the best pair of linear and angular velocities for each frame using PT2.
+- `local_planner.py`: contains the code that gets the global path and robot position, and continuously publishes the velocity commands for the Robot to use in the simulation. It calculates the best pair of linear and angular velocities for each frame using PT2.
 - `utils.py`: contains shared code between the global and local planner, such as common data structures or functions that were necessary in both stages.
 - `parameters.yaml`: allows easy customization of parameters used in the simulation. Parameters are explained in comments.
 
